@@ -1,0 +1,3 @@
+﻿  vm1591_hw3_q4.cpp
+C:\Users\vanes\Projects\tandon\hw3\vm1591_hw3_q4\vm1591_hw3_q4.cpp(29,21): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
+  vm1591_hw3_q4.vcxproj -> C:\Users\vanes\Projects\tandon\vm1591_hw3_q1\x64\Debug\vm1591_hw3_q4.exe
