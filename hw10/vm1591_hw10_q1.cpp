@@ -11,6 +11,8 @@ int main() {
     for (int i = 0; i < outWordsArrSize; i++) {
         cout << strArr[i] << endl;
     }
+    delete[] strArr;
+    strArr = nullptr;
     return 0;
 }
 
