@@ -10,7 +10,7 @@ void printLine(int n);
 int main(){
     // printTriangle(10);
     // printOppositeTriangles(10);
-    printRuler(4);
+    printRuler(3);
     return 0;
 }
 
