@@ -252,9 +252,9 @@ int main(){
         time++;
         cout << "Press ENTER to continue" << endl;
         getline(cin, x);
+        dPtr = nullptr;
+        aPtr = nullptr;
     }
-    dPtr = nullptr;
-    aPtr = nullptr;
     delete dPtr;
     delete aPtr;
     for (int i = 0; i < GRID_DIM; i++) {
