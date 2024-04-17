@@ -2,11 +2,12 @@
 #include <vector>
 using namespace std;
 
-const int GRID_DIM = 10;
-const int INIT_DOODLEBUG_POP = 10;
-const int INIT_ANT_POP = 2;
+const int GRID_DIM = 20;
+const int INIT_DOODLEBUG_POP = 5;
+const int INIT_ANT_POP = 100;
 const int ANT_REPRODUCE = 3;
 const int DOODLEBUG_REPRODUCE = 8;
+const int MAX_DAYS_WITHOUT_EATING = 3;
 
 class Organism {
     protected:
@@ -24,6 +25,15 @@ class Organism {
             return daysUntilBreeding;
         }
         virtual void move(char**& world){};
+
+        friend bool operator==(const Organism& bug1, const Organism& bug2){
+            return bug1.col == bug2.col && bug1.row == bug2.row;
+        };
+
+        friend ostream& operator<<(ostream& outs, const Organism& bug){
+            outs << "(" << bug.row << ", " << bug.col << ")";
+            return outs;
+        };
 
         void getNextCoordinate(char**& world, int& row, int& col, int worldSize) {
             vector<int> openSpaceArr;
@@ -61,8 +71,7 @@ class Organism {
             }
         }
 };
-
-class Ant: public Organism {
+class Ant: public Organism { 
     public:
         Ant(){};
         Ant(int row, int col): Organism(row, col, ANT_REPRODUCE){};
@@ -100,9 +109,24 @@ class Ant: public Organism {
         }
 };
 class Doodlebug: public Organism {
+    int daysLeftToEat; 
     public:
         Doodlebug(){};
-        Doodlebug(int row, int col): Organism(row, col, DOODLEBUG_REPRODUCE){};
+        Doodlebug(int row, int col): Organism(row, col, DOODLEBUG_REPRODUCE){
+            this->daysLeftToEat=MAX_DAYS_WITHOUT_EATING;
+        };
+
+        int getDaysLeftToEat(){
+            return daysLeftToEat;
+        }
+
+        void removeBug(vector<Ant>&v, Ant a){
+            int j = 0;
+            for (int i = 0; i < v.size(); i++) {
+                if (!(v[i] == a)) v[j++] = v[i];
+            }
+            v.resize(j);
+        }
 
         void getPreyCoordinate(char**& world, int& row, int& col, int worldSize){
             vector<int> preyArr;
@@ -140,12 +164,38 @@ class Doodlebug: public Organism {
             }
         };
 
-        void move(char**& world){
+        void reproduce(char**& world, vector<Doodlebug>& dbV) {
+            int newRow = row;
+            int newCol = col;
+            getNextCoordinate(world, newRow, newCol, GRID_DIM);
+            // if there's space create new ant
+            if (!(newRow == row && newCol == col)){
+                // set parent's daysUntilBreeding back
+                this->daysUntilBreeding = DOODLEBUG_REPRODUCE;
+                // overwrite the new coordinate with X
+                world[newRow][newCol] = 'X';
+                // push new doodlebug into vector with new coordinates
+                Doodlebug db(newRow, newCol);
+                dbV.push_back(db);
+            }
+        };
+
+        void die(char**& world){
+            // overwrite current coordinate with - for empty space
+            world[row][col] = '-';
+        }
+
+        void move(char**& world, vector<Ant>& antV, vector<Doodlebug>& dbV){
             int newRow = row;
             int newCol = col;
             this->getPreyCoordinate(world, newRow, newCol, GRID_DIM);
+            // if no prey was detected -> randomly move L/R/U/D
             if (newRow == row && newCol == col) {
                 this->getNextCoordinate(world, newRow, newCol, GRID_DIM);
+                daysLeftToEat--;
+            } else { // otherwise eat ant 
+                this->removeBug(antV, Ant(newRow, newCol));
+                daysLeftToEat = MAX_DAYS_WITHOUT_EATING;
             }
             world[row][col] = '-';
             // overwrite the new coordinate with X
@@ -153,15 +203,14 @@ class Doodlebug: public Organism {
             // set new coordinates
             row = newRow;
             col = newCol;
-        }
-
-        // void reproduce(char**& world) {
-
-        // }
+            // decrement daysUntilBreeding if not already 0
+            if (daysUntilBreeding > 0) daysUntilBreeding--;
+        };
 };
 
 void initializeWorld(char**& world, vector<Doodlebug>& doodlebugV, vector<Ant>& antV);
 void printWorld(char** world);
+void killOffDoodles(char**& world, vector<Doodlebug>& doodleV);
 
 int main(){
     string x;
@@ -172,37 +221,61 @@ int main(){
     }
     vector<Doodlebug> doodlebugV;
     vector<Ant> antV;
+    Doodlebug* dPtr;
+    Ant* aPtr;
+
     while(true) {
         cout << "World at time " << time << ":\n" << endl;
         if (time == 0) initializeWorld(world, doodlebugV, antV);
         else {
-            int doodlebugVSize = doodlebugV.size();
-            for (int i = 0; i < doodlebugVSize; i++) {
-                Doodlebug* dPtr = &doodlebugV[i];
-                dPtr->move(world);
+            int dbSize = doodlebugV.size();
+            for (int i = 0; i < dbSize; i++) {
+                dPtr = &doodlebugV[i];
+                dPtr->move(world, antV, doodlebugV);
             }
-            int antVSize = antV.size();
-            for (int i = 0; i < antVSize; i++) {
-                Ant* aPtr = &antV[i];
+            killOffDoodles(world, doodlebugV);
+            for (int i = 0; i < dbSize; i++) {
+                if (dPtr->getDaysUntilBreeding() == 0) {
+                    dPtr->reproduce(world, doodlebugV);
+                }
+            }
+            int aSize = antV.size();
+            for (int i = 0; i < aSize; i++) {
+                aPtr = &antV[i];
                 aPtr->move(world);
                 if (aPtr->getDaysUntilBreeding() == 0) {
                     aPtr->reproduce(world, antV);
                 }
             } 
         }
-        cout << "ant vector size: " << antV.size() << endl;
-        cout << "doodlebug vector size: " << doodlebugV.size() << endl;
         printWorld(world);
         time++;
         cout << "Press ENTER to continue" << endl;
         getline(cin, x);
     }
+    dPtr = nullptr;
+    aPtr = nullptr;
+    delete dPtr;
+    delete aPtr;
     for (int i = 0; i < GRID_DIM; i++) {
         world[i] = nullptr;
         delete[] world[i];
     } delete[] world;
     return 0;
 }
+
+void killOffDoodles(char**& world, vector<Doodlebug>& doodleV){
+    vector<Doodlebug> temp;
+    for (Doodlebug d : doodleV) {
+        if (d.getDaysLeftToEat() > 0) {
+            temp.push_back(d);
+        } else {
+            d.die(world);
+        }
+    }
+    doodleV = temp;
+}
+
 
 // populate world with 5 doodle bugs(X) + 100 ants(o)
 void initializeWorld(char**& world, vector<Doodlebug>& doodlebugV, vector<Ant>& antV) {
@@ -233,9 +306,9 @@ void initializeWorld(char**& world, vector<Doodlebug>& doodlebugV, vector<Ant>& 
             col = rand() % GRID_DIM;
         } // as long as world vector is occupied at that index, keep generating new number
         while (world[row][col] != '-');
-        // set element at index to X for doodlebug
+        // set element at index to o for ant
         world[row][col] = 'o';
-        // create a doodlebug object with x and y + push it to doodlebugs vector
+        // create an ant object with x and y + push it to ants vector
         Ant bug(row, col);
         antV.push_back(bug);
     }
